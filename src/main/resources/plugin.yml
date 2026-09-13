@@ -1,0 +1,18 @@
+name: Settings+
+version: '${version}'
+main: io.github.ludovicoflaviano.settingsplus.SettingsPlus
+api-version: '1.21.11'
+author: Ludovico Calvaro
+description: Personal settings with a native Paper inventory UI and 120+ toggles.
+commands:
+  settings:
+    description: Open your personal Settings+ menu.
+    usage: /settings
+    aliases: [setting, options, preferences]
+permissions:
+  settingsplus.use:
+    description: Use the Settings+ menu.
+    default: true
+  settingsplus.admin:
+    description: Reload Settings+.
+    default: op

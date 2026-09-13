@@ -1,0 +1,5 @@
+# Settings+ server defaults
+open-sound: UI_BUTTON_CLICK
+change-sound: UI_BUTTON_CLICK
+page-size: 45
+reset-confirmation: true
