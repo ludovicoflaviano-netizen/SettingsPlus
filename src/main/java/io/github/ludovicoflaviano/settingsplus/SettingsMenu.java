@@ -12,7 +12,6 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public final class SettingsMenu {
     private final SettingsPlus plugin;
@@ -25,9 +24,12 @@ public final class SettingsMenu {
         this.plugin = plugin; this.player = player; this.settings = settings; this.category = category; this.page = page;
     }
 
+    public SettingCategory category() { return category; }
+
     public void open() {
+        plugin.rememberMenu(player, this);
         Inventory inv = Bukkit.createInventory(null, 54, Component.text("Settings+  •  " + category.title(), NamedTextColor.WHITE));
-        List<Setting> list = List.of(Setting.values()).stream().filter(s -> s.category() == category).toList();
+        List<Setting> list = java.util.Arrays.stream(Setting.values()).filter(s -> s.category() == category).toList();
         int maxPage = Math.max(1, (list.size() + 44) / 45);
         int safePage = Math.min(Math.max(page, 0), maxPage - 1);
         int start = safePage * 45;
@@ -44,11 +46,12 @@ public final class SettingsMenu {
     private ItemStack settingItem(Setting setting) {
         ItemStack item = new ItemStack(setting.icon());
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text(setting.displayName(), settings.get(setting) ? NamedTextColor.GREEN : NamedTextColor.RED));
+        boolean enabled = settings.get(setting);
+        meta.displayName(Component.text(setting.displayName(), enabled ? NamedTextColor.GREEN : NamedTextColor.RED));
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text(setting.description(), NamedTextColor.GRAY));
         lore.add(Component.empty());
-        lore.add(Component.text(settings.get(setting) ? "● ON" : "○ OFF", settings.get(setting) ? NamedTextColor.GREEN : NamedTextColor.RED));
+        lore.add(Component.text(enabled ? "● ON" : "○ OFF", enabled ? NamedTextColor.GREEN : NamedTextColor.RED));
         lore.add(Component.text("Click to toggle", NamedTextColor.DARK_GRAY));
         meta.lore(lore);
         item.setItemMeta(meta);
@@ -67,7 +70,7 @@ public final class SettingsMenu {
 
     public void click(InventoryClickEvent event) {
         int slot = event.getRawSlot();
-        List<Setting> list = List.of(Setting.values()).stream().filter(s -> s.category() == category).collect(Collectors.toList());
+        List<Setting> list = java.util.Arrays.stream(Setting.values()).filter(s -> s.category() == category).toList();
         int maxPage = Math.max(1, (list.size() + 44) / 45);
         if (slot < 45) {
             int index = page * 45 + slot;
@@ -78,8 +81,8 @@ public final class SettingsMenu {
                 plugin.playClick(player, setting);
                 open();
             }
-        } else if (slot == 45 && page > 0) new SettingsMenu(plugin, player, settings, category, page - 1).open();
-        else if (slot == 53 && page + 1 < maxPage) new SettingsMenu(plugin, player, settings, category, page + 1).open();
+        } else if (slot == 45 && page > 0) plugin.openCategory(player, category, page - 1);
+        else if (slot == 53 && page + 1 < maxPage) plugin.openCategory(player, category, page + 1);
         else if (slot == 49) player.closeInventory();
         else if (slot == 47) {
             for (Setting s : list) settings.set(s, true);

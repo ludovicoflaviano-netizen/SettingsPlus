@@ -19,30 +19,32 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 public final class SettingsPlus extends JavaPlugin implements Listener, CommandExecutor {
     private SettingsStore store;
-    private final Map<UUID, PlayerSettings> cache = new EnumMap<>(UUID.class);
-    private final Map<UUID, SettingsMenu> menus = new java.util.HashMap<>();
+    private final Map<UUID, PlayerSettings> cache = new HashMap<>();
+    private final Map<UUID, SettingsMenu> menus = new HashMap<>();
 
     @Override public void onEnable() {
         saveDefaultConfig();
         store = new SettingsStore(new java.io.File(getDataFolder(), "players"));
         getServer().getPluginManager().registerEvents(this, this);
-        getCommand("settings").setExecutor(this);
+        if (getCommand("settings") != null) getCommand("settings").setExecutor(this);
         getLogger().info("Settings+ enabled with " + Setting.values().length + " personal toggles.");
     }
 
     @Override public void onDisable() {
         cache.values().forEach(store::save);
         cache.clear();
+        menus.clear();
     }
 
     public SettingsStore store() { return store; }
     public PlayerSettings settings(Player player) { return cache.computeIfAbsent(player.getUniqueId(), store::load); }
+    public void rememberMenu(Player player, SettingsMenu menu) { menus.put(player.getUniqueId(), menu); }
 
     public void openCategories(Player player) {
         Inventory inv = getServer().createInventory(null, 27, Component.text("Settings+", NamedTextColor.WHITE));
@@ -71,9 +73,11 @@ public final class SettingsPlus extends JavaPlugin implements Listener, CommandE
 
     private ItemStack simple(Material m, String name) { ItemStack i = new ItemStack(m); ItemMeta x=i.getItemMeta(); x.displayName(Component.text(name, NamedTextColor.WHITE)); i.setItemMeta(x); return i; }
 
-    public void openCategory(Player player, SettingCategory category) {
-        SettingsMenu menu = new SettingsMenu(this, player, settings(player), category, 0);
-        menus.put(player.getUniqueId(), menu);
+    public void openCategory(Player player, SettingCategory category) { openCategory(player, category, 0); }
+
+    public void openCategory(Player player, SettingCategory category, int page) {
+        SettingsMenu menu = new SettingsMenu(this, player, settings(player), category, page);
+        rememberMenu(player, menu);
         menu.open();
     }
 
@@ -88,20 +92,20 @@ public final class SettingsPlus extends JavaPlugin implements Listener, CommandE
 
     @EventHandler public void onClick(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player player)) return;
-        String title = e.getView().title().toString();
-        if (!title.contains("Settings+")) return;
-        e.setCancelled(true);
-        if (e.getRawSlot() >= e.getView().topInventory().getSize()) return;
-        if (title.equals(Component.text("Settings+", NamedTextColor.WHITE).toString())) {
-            int slot=e.getRawSlot();
-            SettingCategory[] categories=SettingCategory.values();
-            int index = slot >= 10 && slot <= 16 ? slot-10 : slot >= 19 && slot <= 20 ? slot-19+7 : -1;
-            if (index >= 0 && index < categories.length) openCategory(player, categories[index]);
-            else if (slot==22) player.closeInventory();
+        SettingsMenu menu = menus.get(player.getUniqueId());
+        if (menu != null && e.getView().title().equals(Component.text("Settings+  •  " + menu.category().title(), NamedTextColor.WHITE))) {
+            e.setCancelled(true);
+            menu.click(e);
             return;
         }
-        SettingsMenu menu=menus.get(player.getUniqueId());
-        if(menu!=null) menu.click(e);
+        if (!e.getView().title().equals(Component.text("Settings+", NamedTextColor.WHITE))) return;
+        e.setCancelled(true);
+        if (e.getRawSlot() >= e.getView().topInventory().getSize()) return;
+        int slot=e.getRawSlot();
+        SettingCategory[] categories=SettingCategory.values();
+        int index = slot >= 10 && slot <= 16 ? slot-10 : slot == 19 ? 7 : -1;
+        if (index >= 0 && index < categories.length) openCategory(player, categories[index]);
+        else if (slot==22) player.closeInventory();
     }
 
     @EventHandler public void onClose(InventoryCloseEvent e) { menus.remove(e.getPlayer().getUniqueId()); }
